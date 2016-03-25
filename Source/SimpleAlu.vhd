@@ -60,7 +60,7 @@ begin -- architecture rtl
         cResultValid <= true;
         case cOpCode is
           when kSumOp =>
-            cTempResult := cDataA + cDataB;
+            cTempResult := ( '0' & cDataA) + ('0' & cDataB);
             cResult <= cTempResult(cResult'range);
             -- Handle overflow flag
             -- An overflow has occurred when the MSB of cTempResult asserts.
@@ -69,7 +69,7 @@ begin -- architecture rtl
             cOverflow <= (cTempResult(kDataLength) = '1');
 
           when kSubractOp =>
-            cTempResult := cDataA - cDataB;
+            cTempResult := ( '0' & cDataA) - ('0' & cDataB);
             cResult <= cTempResult(cResult'range);
             -- Handle overflow flag
             -- An overflow has occurred when the MSB of cTempResult asserts.
@@ -114,33 +114,16 @@ end entity tb_SimpleAlu;
 
 architecture test of tb_SimpleAlu is
 
-  -- Component Declaration for the DUT
-  -- component SimpleAlu
-    -- generic (
-      -- kDataLength : positive := 8);
-    -- port (
-      -- Clk          : in  std_logic;
-      -- aReset       : in  boolean;
-      -- cOpCode      : in  std_logic_vector(1 downto 0);
-      -- cDataA       : in  unsigned(kDataLength - 1 downto 0);
-      -- cDataB       : in  unsigned(kDataLength - 1 downto 0);
-      -- cPushData    : in  boolean;
-      -- cResult      : out unsigned(kDataLength - 1 downto 0);
-      -- cResultValid : out boolean;
-      -- cOverflow    : out boolean
-    -- );
-  -- end component;
-
   -- DUT signals
-  signal Clk          : std_logic;
-  signal aReset       : std_logic;
-  signal cOpCode      : std_logic_vector(1 downto 0);
-  signal cDataA       : unsigned(kDataLength - 1 downto 0);
-  signal cDataB       : unsigned(kDataLength - 1 downto 0);
-  signal cPushData    : boolean;
-  signal cResult      : unsigned(kDataLength - 1 downto 0);
-  signal cResultValid : boolean;
-  signal cOverflow    : boolean;
+  signal Clk          : std_logic := '0';
+  signal aReset       : std_logic := '0';
+  signal cOpCode      : std_logic_vector(1 downto 0) := (others => '0');
+  signal cDataA       : unsigned(kDataLength - 1 downto 0) := (others => '0');
+  signal cDataB       : unsigned(kDataLength - 1 downto 0) := (others => '0');
+  signal cPushData    : boolean := false;
+  signal cResult      : unsigned(kDataLength - 1 downto 0) := (others => '0');
+  signal cResultValid : boolean := false;
+  signal cOverflow    : boolean := false;
 
   -- Clock Frequency
   constant kMainClockFreq : time := 10 ns;
@@ -209,6 +192,7 @@ begin -- architecture test
       Operation : std_logic_vector(1 downto 0);
       DataA     : unsigned(kDataLength - 1 downto 0);
       DataB     : unsigned(kDataLength - 1 downto 0)) is
+      variable ExpectedResultInt : integer := 0;
       variable ExpectedResult   : unsigned(kDataLength downto 0) :=
         (others => '0');
       variable ExpectedOverflow : boolean := false;
@@ -216,19 +200,23 @@ begin -- architecture test
       -- Create expected outputs
       case Operation is
         when "00" => -- Sum
-          ExpectedResult := DataA + DataB;
+          ExpectedResultInt := to_integer(DataA) + to_integer(DataB);
+          ExpectedResult := unsigned(std_logic_vector(to_signed(ExpectedResultInt,
+            kDataLength+1)));
           ExpectedOverflow := (To_X01(ExpectedResult(kDataLength))='1');
 
         when "01" => -- Sub
-          ExpectedResult := DataA - DataB;
+          ExpectedResultInt := to_integer(DataA) - to_integer(DataB);
+          ExpectedResult := unsigned(std_logic_vector(to_signed(ExpectedResultInt,
+            kDataLength+1)));
           ExpectedOverflow := (To_X01(ExpectedResult(kDataLength))='1');
 
         when "10" => -- And
-          ExpectedResult := DataA and DataB;
+          ExpectedResult := ('0' & DataA) and ('0' & DataB);
           ExpectedOverflow := (To_X01(ExpectedResult(kDataLength))='1');
 
         when others => -- Or
-          ExpectedResult := DataA or DataB;
+          ExpectedResult := ('0' & DataA) or ('0' & DataB);
           ExpectedOverflow := (To_X01(ExpectedResult(kDataLength))='1');
       end case;
 
@@ -239,7 +227,6 @@ begin -- architecture test
       cPushData <= true;
       wait until rising_edge(Clk);
       cPushData <= false;
-      wait until rising_edge(Clk);
 
       -- Capture results
       wait until cResultValid;
@@ -256,15 +243,50 @@ begin -- architecture test
           "Received: " & Image(to_StdLogic(cOverflow))
           severity error;
 
+      wait until rising_edge(Clk);
     end procedure TestAluOp;
   begin -- process MainTest
     test_runner_setup(runner, runner_cfg);
-    report "Hello world!";
-    test_runner_cleanup(runner); -- Simulation ends here
 
+    aReset <= '1';
+    ClkWait(2, Clk);
+    aReset <= '0';
+    ClkWait(1, Clk);
+
+    -- Run each test in a separate simulation
+    while test_suite loop
+      if run("SimpleAddTest") then
+        TestAluOp(
+          Operation => "00", -- Sum
+          DataA     => to_unsigned(3, kDataLength),
+          DataB     => to_unsigned(2, kDataLength));
+
+      elsif run("SimpleSubtractTest") then
+        TestAluOp(
+          Operation => "01", -- Subtract
+          DataA     => to_unsigned(3, kDataLength),
+          DataB     => to_unsigned(2, kDataLength));
+
+      elsif run("SimpleAndTest") then
+        TestAluOp(
+          Operation => "10", -- And
+          DataA     => to_unsigned(10, kDataLength),
+          DataB     => to_unsigned(3, kDataLength));
+
+      elsif run("SimpleOrTest") then
+        TestAluOp(
+          Operation => "11", -- Or
+          DataA     => to_unsigned(10, kDataLength),
+          DataB     => to_unsigned(5, kDataLength));
+      end if;
+    end loop;
+
+    test_runner_cleanup(runner); -- Simulation ends here
     StopSim <= true;
     wait;
   end process MainTest;
+
+  test_runner_watchdog(runner, 10 ms);
 
   DUT: entity work.SimpleAlu(rtl)
     generic map(

@@ -112,7 +112,13 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
+library vunit_lib;
+  context vunit_lib.vunit_context;
+
 entity tb_StdFifo is
+  generic (
+    runner_cfg  : runner_cfg_t
+    );
 end tb_StdFifo;
 
 architecture behavior of tb_StdFifo is
@@ -135,6 +141,8 @@ architecture behavior of tb_StdFifo is
     );
   end component;
 
+  signal StopSim : boolean := false;
+
   --Inputs
   signal Clk    : std_logic := '0';
   signal aReset    : std_logic := '0';
@@ -148,7 +156,7 @@ architecture behavior of tb_StdFifo is
   signal cFull    : std_logic;
 
   -- Clock period definitions
-  constant Clk_period : time := 10 ns;
+  constant kClkPeriod : time := 10 ns;
 
 begin
 
@@ -165,23 +173,54 @@ begin
       cFull    => cFull
     );
 
-  -- Clock process definitions
-  Clk_process :process
-  begin
-    Clk <= '0';
-    wait for Clk_period/2;
-    Clk <= '1';
-    wait for Clk_period/2;
-  end process;
+  Clk <= not Clk after kClkPeriod / 2 when not StopSim else
+    '0';
+
+  MainTest: process
+  begin -- process MainTest
+    test_runner_setup(runner, runner_cfg);
+
+    -- Run each test in a separate simulation
+    -- while test_suite loop
+      -- if run("SimpleAddTest") then
+        -- TestAluOp(
+          -- Operation => "00", -- Sum
+          -- DataA     => to_unsigned(3, kDataLength),
+          -- DataB     => to_unsigned(2, kDataLength));
+
+      -- elsif run("SimpleSubtractTest") then
+        -- TestAluOp(
+          -- Operation => "01", -- Subtract
+          -- DataA     => to_unsigned(3, kDataLength),
+          -- DataB     => to_unsigned(2, kDataLength));
+
+      -- elsif run("SimpleAndTest") then
+        -- TestAluOp(
+          -- Operation => "10", -- And
+          -- DataA     => to_unsigned(10, kDataLength),
+          -- DataB     => to_unsigned(3, kDataLength));
+
+      -- elsif run("SimpleOrTest") then
+        -- TestAluOp(
+          -- Operation => "11", -- Or
+          -- DataA     => to_unsigned(10, kDataLength),
+          -- DataB     => to_unsigned(5, kDataLength));
+      -- end if;
+    -- end loop;
+
+    test_runner_cleanup(runner); -- Simulation ends here
+    StopSim <= true;
+    wait;
+  end process MainTest;
 
   -- Reset process
   aReset_proc : process
   begin
-  wait for Clk_period * 5;
+  wait for kClkPeriod * 5;
 
     aReset <= '1';
 
-    wait for Clk_period * 5;
+    wait for kClkPeriod * 5;
 
     aReset <= '0';
 
@@ -192,34 +231,34 @@ begin
   wr_proc : process
     variable counter : unsigned (7 downto 0) := (others => '0');
   begin
-    wait for Clk_period * 20;
+    wait for kClkPeriod * 20;
 
     for i in 1 to 32 loop
       counter := counter + 1;
 
       cDataIn <= std_logic_vector(counter);
 
-      wait for Clk_period * 1;
+      wait for kClkPeriod * 1;
 
       cWriteEn <= '1';
 
-      wait for Clk_period * 1;
+      wait for kClkPeriod * 1;
 
       cWriteEn <= '0';
     end loop;
 
-    wait for Clk_period * 20;
+    wait for kClkPeriod * 20;
 
     for i in 1 to 32 loop
       counter := counter + 1;
 
       cDataIn <= std_logic_vector(counter);
 
-      wait for Clk_period * 1;
+      wait for kClkPeriod * 1;
 
       cWriteEn <= '1';
 
-      wait for Clk_period * 1;
+      wait for kClkPeriod * 1;
 
       cWriteEn <= '0';
     end loop;
@@ -230,17 +269,17 @@ begin
   -- Read process
   rd_proc : process
   begin
-    wait for Clk_period * 20;
+    wait for kClkPeriod * 20;
 
-    wait for Clk_period * 40;
+    wait for kClkPeriod * 40;
 
     cReadEn <= '1';
 
-    wait for Clk_period * 60;
+    wait for kClkPeriod * 60;
 
     cReadEn <= '0';
 
-    wait for Clk_period * 256 * 2;
+    wait for kClkPeriod * 256 * 2;
 
     cReadEn <= '1';
 

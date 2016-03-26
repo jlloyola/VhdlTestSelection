@@ -167,19 +167,6 @@ architecture test of tb_SimpleAlu is
   end to_StdLogic;
 
 begin -- architecture test
-  -- DUT: SimpleAlu
-    -- generic map(
-      -- kDataLength => kDataLength)
-    -- port map(
-      -- Clk          => Clk,
-      -- aReset       => aReset,
-      -- cOpCode      => cOpCode,
-      -- cDataA       => cDataA,
-      -- cDataB       => cDataB,
-      -- cPushData    => cPushData,
-      -- cResult      => cResult,
-      -- cResultValid => cResultValid,
-      -- cOverflow    => cOverflow);
 
   Clk <= not Clk after kMainClockFreq / 2 when not StopSim else
     '0';

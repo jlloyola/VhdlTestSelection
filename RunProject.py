@@ -22,6 +22,8 @@ for file in SrcFiles:
     #......
 print (PrjFiles)
 
+# From what I have found we have two choices to do test selection:
+# + Create two separate VUnit objects (the only way to execute specific tests
 #   is to pass them as arguments).
 # + Create a separate parent script that calls RunProject.py with the tests
 #   two run as arguments. This might imply that we need to do the checksum test

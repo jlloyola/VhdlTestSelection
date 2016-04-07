@@ -31,7 +31,6 @@ end StdFifo;
 architecture Behavioral of StdFifo is
 
 begin
-
   -- Memory Pointer Process
   fifo_proc : process (Clk)
     type FifoMemory_t is array (0 to kFifoDepth - 1) of std_logic_vector(

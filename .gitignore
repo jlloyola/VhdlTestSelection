@@ -1,2 +1,6 @@
 # Directory created by VUnit
 vunit_out/*
+# Hash directory
+saved_hashes/*
+# Directory created by python
+__pycache__/*

@@ -11,18 +11,18 @@ SourcePath = "Source"
 lib.add_source_files(join(root, SourcePath, "*.vhd"))
 
 # Get all the .vhd source files
-SrcFiles = ui.get_source_files('*.vhd')
+# SrcFiles = ui.get_source_files('*.vhd')
 # Create a list with the files to be tested
-PrjFiles = []
-for file in SrcFiles:
-    if SourcePath in file.name:
-        print (file.name)
-        PrjFiles.append(file.name)
+# PrjFiles = []
+# for file in SrcFiles:
+    # if SourcePath in file.name:
+        # print (file.name)
+        # PrjFiles.append(file.name)
         # Verify checksum
 
         # If != Append to list of test to run
     #......
-print (PrjFiles)
+# print (PrjFiles)
 
 # From what I have found we have two choices to do test selection:
 # + Create two separate VUnit objects (the only way to execute specific tests

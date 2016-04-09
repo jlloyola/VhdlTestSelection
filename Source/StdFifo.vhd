@@ -17,14 +17,15 @@ entity StdFifo is
     kFifoDepth  : positive := 256
   );
   Port (
-    Clk      : in  std_logic;
-    aReset   : in  std_logic;
-    cWriteEn : in  std_logic;
-    cDataIn  : in  std_logic_vector (kDataWidth - 1 downto 0);
-    cReadEn  : in  std_logic;
-    cDataOut : out std_logic_vector (kDataWidth - 1 downto 0);
-    cEmpty   : out std_logic;
-    cFull    : out std_logic
+    Clk        : in  std_logic;
+    aReset     : in  std_logic;
+    cWriteEn   : in  boolean;
+    cDataIn    : in  std_logic_vector (kDataWidth - 1 downto 0);
+    cReadEn    : in  boolean;
+    cDataOut   : out std_logic_vector (kDataWidth - 1 downto 0);
+    cDataValid : out boolean;
+    cEmpty     : out boolean;
+    cFull      : out boolean
   );
 end StdFifo;
 
@@ -43,17 +44,20 @@ begin
     variable Looped : boolean;
   begin
     if aReset = '1' then
-        Head := 0;
-        Tail := 0;
-        Looped := false;
-        cFull  <= '0';
-        cEmpty <= '1';
-        cDataOut <= (others => '0');
+      Head := 0;
+      Tail := 0;
+      Looped := false;
+      cFull  <= false;
+      cEmpty <= true;
+      cDataOut <= (others => '0');
+      cDataValid <= false;
     elsif rising_edge(Clk) then
-      if (cReadEn = '1') then
+      cDataValid <= false;
+      if (cReadEn) then
         if ((Looped = true) or (Head /= Tail)) then
           -- Update data output
           cDataOut <= Memory(Tail);
+          cDataValid <= true;
 
           -- Update Tail pointer as needed
           if (Tail = kFifoDepth - 1) then
@@ -68,7 +72,7 @@ begin
         end if;
       end if;
 
-      if (cWriteEn = '1') then
+      if (cWriteEn) then
         if ((Looped = false) or (Head /= Tail)) then
           -- Write Data to Memory
           Memory(Head) := cDataIn;
@@ -87,13 +91,13 @@ begin
       -- Update cEmpty and cFull flags
       if (Head = Tail) then
         if Looped then
-          cFull <= '1';
+          cFull <= true;
         else
-          cEmpty <= '1';
+          cEmpty <= true;
         end if;
       else
-        cEmpty <= '0';
-        cFull  <= '0';
+        cEmpty <= false;
+        cFull  <= false;
       end if;
     end if;
   end process;
@@ -105,10 +109,13 @@ end Behavioral;
 -- Component Level Testbench
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-
+--synthesis translate_off
 library ieee;
-use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
+  use ieee.std_logic_1164.all;
+  use ieee.numeric_std.all;
+
+library lib;
+  use lib.PkgTbSimUtilities.all;
 
 library vunit_lib;
   context vunit_lib.vunit_context;
@@ -129,25 +136,17 @@ architecture behavior of tb_StdFifo is
   signal Clk      : std_logic := '0';
   signal aReset   : std_logic := '0';
   signal cDataIn  : std_logic_vector(kDataWidth-1 downto 0) := (others => '0');
-  signal cReadEn  : std_logic := '0';
-  signal cWriteEn : std_logic := '0';
+  signal cReadEn  : boolean := false;
+  signal cWriteEn : boolean := false;
 
   --Outputs
-  signal cDataOut : std_logic_vector(kDataWidth-1 downto 0);
-  signal cEmpty   : std_logic;
-  signal cFull    : std_logic;
+  signal cDataOut   : std_logic_vector(kDataWidth-1 downto 0);
+  signal cEmpty     : boolean;
+  signal cFull      : boolean;
+  signal cDataValid : boolean;
 
   -- Clock period definitions
   constant kClkPeriod : time := 10 ns;
-
-  procedure ClkWait(
-    X : integer := 1;
-    signal Clk : std_logic) is
-  begin -- procedure ClkWait
-    for i in 1 to X loop
-      wait until rising_edge(Clk);
-    end loop;
-  end procedure ClkWait;
 
 begin
 
@@ -157,14 +156,15 @@ begin
       kDataWidth  => kDataWidth,
       kFifoDepth  => kFifoDepth)
     port map (
-      Clk      => Clk,
-      aReset   => aReset,
-      cWriteEn => cWriteEn,
-      cDataIn  => cDataIn,
-      cReadEn  => cReadEn,
-      cDataOut => cDataOut,
-      cEmpty   => cEmpty,
-      cFull    => cFull
+      Clk        => Clk,
+      aReset     => aReset,
+      cWriteEn   => cWriteEn,
+      cDataIn    => cDataIn,
+      cReadEn    => cReadEn,
+      cDataOut   => cDataOut,
+      cDataValid => cDataValid,
+      cEmpty     => cEmpty,
+      cFull      => cFull
     );
 
   Clk <= not Clk after kClkPeriod / 2 when not StopSim else
@@ -178,15 +178,15 @@ begin
     begin -- procedure PushDataIntoFifo
       if not cFull then
         cDataIn  <= DataIn;
-        cWriteEn <= '1';
+        cWriteEn <= true;
         ClkWait(1,Clk);
         wait for 0 ns;
       else
-        cWriteEn <= '0';
+        cWriteEn <= false;
         ClkWait(1,Clk);
       end if;
       if not PushBackToBack then
-        cWriteEn <= '0';
+        cWriteEn <= false;
         ClkWait(1,Clk);
       end if;
     end procedure PushDataIntoFifo;
@@ -196,16 +196,19 @@ begin
       ReadBackToBack : boolean := false) is
     begin -- procedure ReadDataFromFifo
       if not cEmpty then
-        cReadEn <= '1';
+        cReadEn <= true;
         ClkWait(1,Clk);
         wait for 0 ns;
+        assert cDataValid
+          report "cDataValid was false"
+          severity error;
         DataOut := cDataOut;
       else
-        cReadEn <= '0';
+        cReadEn <= false;
         ClkWait(1,Clk);
       end if;
       if not ReadBackToBack then
-        cReadEn <= '0';
+        cReadEn <= false;
         ClkWait(1,Clk);
       end if;
     -- wait for 0 ns;
@@ -231,18 +234,19 @@ begin
           ReadDataFromFifo(ReadData);
           assert ReadData = std_logic_vector(to_unsigned(i,kDataWidth))
             report "ReadData is different from the expected result" & LF &
-            "Expected: " & Image(std_logic_vector(std_logic_vector(to_unsigned(
-              i,kDataWidth)))) & LF &
-            "Received: " & Image(std_logic_vector(ReadData))
+            "Expected: " & lib.PkgTbSimUtilities.Image(std_logic_vector(
+              to_unsigned(i,kDataWidth))) & LF &
+            "Received: " & lib.PkgTbSimUtilities.Image(std_logic_vector(
+              ReadData))
             severity error;
         end loop;
 
 
       elsif run("FullAndEmptyTest") then
-        assert cEmpty = '1'
+        assert cEmpty
           report "FIFO was not empty at the beginning of the test." & LF &
           "Expected: 1" & LF &
-          "Received: " & std_logic'Image(cEmpty)
+          "Received: " & boolean'Image(cEmpty)
           severity error;
 
         for i in 0 to kFifoDepth-1 loop
@@ -251,16 +255,16 @@ begin
             PushBackToBack => i /= kFifoDepth-1);
         end loop;
 
-        assert cFull = '1'
+        assert cFull
           report "FIFO is not full." & LF &
           "Expected: '1'"& LF &
-          "Received: " & std_logic'Image(cFull)
+          "Received: " & boolean'Image(cFull)
           severity error;
 
-        assert cEmpty = '0'
+        assert not cEmpty
           report "FIFO Empty flag was asserted with a full FIFO." & LF &
           "Expected: '0'" & LF &
-          "Received: " & std_logic'Image(cEmpty)
+          "Received: " & boolean'Image(cEmpty)
           severity error;
 
         for i in 0 to kFifoDepth-1 loop
@@ -269,22 +273,23 @@ begin
             ReadBackToBack => i /= kFifoDepth-1);
           assert ReadData = std_logic_vector(to_unsigned(i,kDataWidth))
             report "ReadData is different from the expected result" & LF &
-            "Expected: " & Image(std_logic_vector(std_logic_vector(to_unsigned(
-              i,kDataWidth)))) & LF &
-            "Received: " & Image(std_logic_vector(ReadData))
+            "Expected: " & lib.PkgTbSimUtilities.Image(std_logic_vector(
+              std_logic_vector(to_unsigned(i,kDataWidth)))) & LF &
+            "Received: " & lib.PkgTbSimUtilities.Image(std_logic_vector(
+              ReadData))
             severity error;
         end loop;
 
-        assert cEmpty = '1'
+        assert cEmpty
           report "FIFO was not empty at the end of the test." & LF &
           "Expected: '1'"& LF &
-          "Received: " & std_logic'Image(cEmpty)
+          "Received: " & boolean'Image(cEmpty)
           severity error;
 
-        assert cFull = '0'
+        assert not cFull
           report "FIFO Full flag was asserted with an empty FIFO." & LF &
           "Expected: '0'"& LF &
-          "Received: " & std_logic'Image(cFull)
+          "Received: " & boolean'Image(cFull)
           severity error;
 
       elsif run("ReadAndWriteTest") then
@@ -304,16 +309,17 @@ begin
             ReadBackToBack => false);
           assert ReadData = std_logic_vector(to_unsigned(i,kDataWidth))
             report "ReadData is different from the expected result" & LF &
-            "Expected: " & Image(std_logic_vector(std_logic_vector(to_unsigned(
-              i,kDataWidth)))) & LF &
-            "Received: " & Image(std_logic_vector(ReadData))
+            "Expected: " & lib.PkgTbSimUtilities.Image(std_logic_vector(
+              to_unsigned(i,kDataWidth))) & LF &
+            "Received: " & lib.PkgTbSimUtilities.Image(std_logic_vector(
+              ReadData))
             severity error;
         end loop;
 
-        assert cEmpty = '0'
+        assert not cEmpty
           report "FIFO Empty flag was asserted with a full FIFO." & LF &
           "Expected: '0'" & LF &
-          "Received: " & std_logic'Image(cEmpty)
+          "Received: " & boolean'Image(cEmpty)
           severity error;
 
         for i in 0 to (kFifoDepth/2)-1 loop
@@ -323,16 +329,17 @@ begin
           assert ReadData = std_logic_vector(to_unsigned((kFifoDepth/2 + i),
             kDataWidth))
             report "ReadData is different from the expected result" & LF &
-            "Expected: " & Image(std_logic_vector(std_logic_vector(to_unsigned(
-              (kFifoDepth/2 + i),kDataWidth)))) & LF &
-            "Received: " & Image(std_logic_vector(ReadData))
+            "Expected: " & lib.PkgTbSimUtilities.Image(std_logic_vector(
+              to_unsigned((kFifoDepth/2 + i),kDataWidth))) & LF &
+            "Received: " & lib.PkgTbSimUtilities.Image(std_logic_vector(
+              ReadData))
             severity error;
         end loop;
 
-        assert cEmpty = '1'
+        assert cEmpty
           report "FIFO was not empty at the end of the test." & LF &
           "Expected: '1'"& LF &
-          "Received: " & std_logic'Image(cEmpty)
+          "Received: " & boolean'Image(cEmpty)
           severity error;
       end if;
     end loop;
@@ -342,4 +349,7 @@ begin
     wait;
   end process MainTest;
 
+  test_runner_watchdog(runner, 10 ms);
+
 end;
+--synthesis translate_on

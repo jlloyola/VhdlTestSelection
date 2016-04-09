@@ -16,6 +16,9 @@ library ieee;
   use ieee.std_logic_1164.all;
   use ieee.numeric_std.all;
 
+library lib;
+  use lib.PkgSimpleAlu.all;
+
 entity SimpleAlu is
   generic (
     kDataLength : positive := 8
@@ -36,11 +39,6 @@ entity SimpleAlu is
 end entity SimpleAlu;
 
 architecture rtl of SimpleAlu is
-
-  constant kSumOp     : std_logic_vector(cOpCode'range) := "00";
-  constant kSubractOp : std_logic_vector(cOpCode'range) := "01";
-  constant kAndOp     : std_logic_vector(cOpCode'range) := "10";
-  constant kOrOp      : std_logic_vector(cOpCode'range) := "11";
 
 begin -- architecture rtl
 
@@ -100,7 +98,10 @@ end architecture rtl;
 library ieee;
   use ieee.std_logic_1164.all;
   use ieee.numeric_std.all;
-  use std.textio.all;
+
+library lib;
+  use lib.PkgTbSimUtilities.all;
+  use lib.PkgSimpleAlu.all;
 
 library vunit_lib;
   context vunit_lib.vunit_context;
@@ -130,42 +131,6 @@ architecture test of tb_SimpleAlu is
 
   signal StopSim : boolean := false;
 
-  procedure ClkWait(
-    X : integer := 1;
-    signal Clk : std_logic) is
-  begin -- procedure ClkWait
-    for i in 1 to X loop
-      wait until rising_edge(Clk);
-    end loop;
-  end procedure ClkWait;
-
-  function Image(Arg : std_logic_vector) return string is
-    variable x : line;
-    variable rval : string(1 to Arg'length);
-  begin
-    rval := x.all;
-    deallocate(x);
-    return rval;
-  end Image;
-
-  function Image(Arg : std_logic) return string is
-    variable x : line;
-    variable rval : string(1 to 1);
-  begin
-    rval := x.all;
-    deallocate(x);
-    return rval;
-  end Image;
-
-  function to_StdLogic(b : boolean) return std_logic is
-  begin
-    if b then
-      return '1';
-    else
-      return '0';
-    end if;
-  end to_StdLogic;
-
 begin -- architecture test
 
   Clk <= not Clk after kMainClockFreq / 2 when not StopSim else
@@ -186,19 +151,19 @@ begin -- architecture test
     begin -- procedure TestAluOp
       -- Create expected outputs
       case Operation is
-        when "00" => -- Sum
+        when kSumOp =>
           ExpectedResultInt := to_integer(DataA) + to_integer(DataB);
           ExpectedResult := unsigned(std_logic_vector(to_signed(ExpectedResultInt,
             kDataLength+1)));
           ExpectedOverflow := (To_X01(ExpectedResult(kDataLength))='1');
 
-        when "01" => -- Sub
+        when kSubractOp =>
           ExpectedResultInt := to_integer(DataA) - to_integer(DataB);
           ExpectedResult := unsigned(std_logic_vector(to_signed(ExpectedResultInt,
             kDataLength+1)));
           ExpectedOverflow := (To_X01(ExpectedResult(kDataLength))='1');
 
-        when "10" => -- And
+        when kAndOp =>
           ExpectedResult := ('0' & DataA) and ('0' & DataB);
           ExpectedOverflow := (To_X01(ExpectedResult(kDataLength))='1');
 
@@ -220,14 +185,16 @@ begin -- architecture test
 
       assert cResult = ExpectedResult(cResult'range)
         report "cResult is different from the expected result" & LF &
-          "Expected: " & Image(std_logic_vector(ExpectedResult(cResult'range)))&LF&
-          "Received: " & Image(std_logic_vector(cResult))
+          "Expected: " & lib.PkgTbSimUtilities.Image(std_logic_vector(
+            ExpectedResult(cResult'range)))&LF&
+          "Received: " & lib.PkgTbSimUtilities.Image(std_logic_vector(cResult))
           severity error;
 
       assert cOverflow = ExpectedOverflow
         report "cOverflow is different from the expected overflow" & LF &
-          "Expected: " & Image(std_logic_vector(ExpectedResult(cResult'range)))&LF&
-          "Received: " & Image(to_StdLogic(cOverflow))
+          "Expected: " & lib.PkgTbSimUtilities.Image(std_logic_vector(
+            ExpectedResult(cResult'range)))&LF&
+          "Received: " & lib.PkgTbSimUtilities.Image(to_StdLogic(cOverflow))
           severity error;
 
       wait until rising_edge(Clk);
@@ -244,27 +211,79 @@ begin -- architecture test
     while test_suite loop
       if run("SimpleAddTest") then
         TestAluOp(
-          Operation => "00", -- Sum
+          Operation => kSumOp,
           DataA     => to_unsigned(3, kDataLength),
           DataB     => to_unsigned(2, kDataLength));
 
       elsif run("SimpleSubtractTest") then
         TestAluOp(
-          Operation => "01", -- Subtract
+          Operation => kSubractOp,
           DataA     => to_unsigned(3, kDataLength),
           DataB     => to_unsigned(2, kDataLength));
 
       elsif run("SimpleAndTest") then
         TestAluOp(
-          Operation => "10", -- And
+          Operation => kAndOp,
           DataA     => to_unsigned(10, kDataLength),
           DataB     => to_unsigned(3, kDataLength));
 
       elsif run("SimpleOrTest") then
         TestAluOp(
-          Operation => "11", -- Or
+          Operation => kOrOp,
           DataA     => to_unsigned(10, kDataLength),
           DataB     => to_unsigned(5, kDataLength));
+
+      elsif run("SumOverflowTest") then
+        TestAluOp(
+          Operation => kSumOp,
+          DataA     => to_unsigned(2**kDataLength, kDataLength),
+          DataB     => to_unsigned(2**kDataLength, kDataLength));
+
+      elsif run("SubtractOverflowTest") then
+        TestAluOp(
+          Operation => kSubractOp,
+          DataA     => to_unsigned(0, kDataLength),
+          DataB     => to_unsigned(2**kDataLength, kDataLength));
+
+      elsif run("RandomAddTests") then
+        for i in 1 to 50 loop
+          TestAluOp(
+            Operation => kSumOp,
+            DataA     => unsigned(RandSlv(kDataLength)),
+            DataB     => unsigned(RandSlv(kDataLength)));
+        end loop;
+
+      elsif run("RandomSubtractTests") then
+        for i in 1 to 50 loop
+          TestAluOp(
+            Operation => kSubractOp,
+            DataA     => unsigned(RandSlv(kDataLength)),
+            DataB     => unsigned(RandSlv(kDataLength)));
+        end loop;
+
+      elsif run("RandomAndTests") then
+        for i in 1 to 50 loop
+          TestAluOp(
+            Operation => kAndOp,
+            DataA     => unsigned(RandSlv(kDataLength)),
+            DataB     => unsigned(RandSlv(kDataLength)));
+        end loop;
+
+      elsif run("RandomOrTests") then
+        for i in 1 to 50 loop
+          TestAluOp(
+            Operation => kOrOp,
+            DataA     => unsigned(RandSlv(kDataLength)),
+            DataB     => unsigned(RandSlv(kDataLength)));
+        end loop;
+
+      elsif run("RandomOperationTests") then
+        for i in 1 to 200 loop
+          TestAluOp(
+            Operation => RandSlv(cOpCode'length),
+            DataA     => unsigned(RandSlv(kDataLength)),
+            DataB     => unsigned(RandSlv(kDataLength)));
+        end loop;
       end if;
     end loop;
 
@@ -290,3 +309,4 @@ begin -- architecture test
       cOverflow    => cOverflow);
 
 end architecture test;
+--synthesis translate_on

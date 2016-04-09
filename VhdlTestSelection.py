@@ -52,6 +52,8 @@ logging.debug(files_to_test)
 if files_to_test != []:
     # Execute the tests for the files with whose hash mismatched
     for f in files_to_test:
+        # I want to be able to run it on unix too.
+        # let me know if this still works on windows.
         vunit_command = path.normpath(path.abspath("./RunVUnit.py"))
         # Remove the .vhd extension, make all file names lower case (required by
         # VUnit) and, concatenate it to the vunit_command

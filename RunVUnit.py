@@ -1,11 +1,16 @@
 #!/usr/bin/python
 
+import sys
 from os.path import join, dirname
 from vunit import VUnit
+from vunit.vunit_cli import VUnitCLI 
 
 root = dirname(__file__)
 
-ui = VUnit.from_argv()
+argv = sys.argv
+args = VUnitCLI().parse_args(argv)
+
+ui = VUnit.from_args(args)
 lib = ui.add_library("lib")
 SourcePath = "Source"
 lib.add_source_files(join(root, SourcePath, "*.vhd"))

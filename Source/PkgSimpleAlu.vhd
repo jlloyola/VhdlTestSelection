@@ -15,6 +15,7 @@ package PkgSimpleAlu is
   -- 2**kOpCodeSize.
   constant kOpCodeSize : natural := 2;
   -- Define the value of each OpCode
+  
   constant kSumOp     : std_logic_vector(kOpCodeSize-1 downto 0) := "00";
   constant kSubractOp : std_logic_vector(kOpCodeSize-1 downto 0) := "01";
   constant kAndOp     : std_logic_vector(kOpCodeSize-1 downto 0) := "10";

@@ -10,7 +10,7 @@ from vunit.vunit_cli import VUnitCLI
 from HashManager import HashManager 
 
 # Uncomment this line to print the debug log
-logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+# logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 # root directory for this file
 root = path.dirname(__file__)
@@ -102,6 +102,7 @@ def save_computed_hashes():
 
 def execute_stage(files_to_test):
     all_tests_passed = True
+    logging.debug("Tests to run:" + str(files_to_test))
     for file_source in files_to_test:
         # I want to be able to run it on unix too.
         # let me know if this still works on windows.
@@ -110,6 +111,8 @@ def execute_stage(files_to_test):
         # VUnit) and, concatenate it to the vunit_command
         test_entity = str(file_source)
         test_entity = test_entity.lower()
+        test_entity = path.basename(test_entity)
+        # TODO: Find a better way to send the specific test.
         vunit_command += (" *" + test_entity.rstrip(".vhd") + "*")
         # Run the selected tests
         try:
@@ -124,5 +127,5 @@ def execute_stage(files_to_test):
         
 
 selected_tests = analysis_stage()
-logging.debug(str(hash_dict))
+logging.debug("Files that changed:" + str(hash_dict))
 execute_stage(selected_tests)

@@ -20,6 +20,7 @@ package PkgTbSimUtilities is
 
   function Image(Arg : std_logic_vector) return string;
   function Image(Arg : std_logic) return string;
+  function Image(Arg : unsigned) return string;
 
   function to_StdLogic(b : boolean) return std_logic;
 
@@ -47,6 +48,11 @@ package body PkgTbSimUtilities is
     rval := x.all;
     deallocate(x);
     return rval;
+  end Image;
+
+  function Image(Arg : unsigned) return string is
+  begin
+    return Image(std_logic_vector(Arg));
   end Image;
 
   function Image(Arg : std_logic) return string is

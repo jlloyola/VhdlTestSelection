@@ -22,11 +22,15 @@ package PkgTbSimUtilities is
   function Image(Arg : std_logic) return string;
   function Image(Arg : unsigned) return string;
 
+  function to_Boolean(s: std_logic) return boolean;
   function to_StdLogic(b : boolean) return std_logic;
 
   function RandReal(UpperLim : real := 1.0) return real;
   function RandNatural(LowerLim, UpperLim : natural) return natural;
   function RandSlv(Size : positive) return std_logic_vector;
+  function RandUnsigned(Size : positive) return unsigned;
+
+  function Zeros(Size : positive) return std_logic_vector;
 
 end package PkgTbSimUtilities;
 
@@ -73,6 +77,11 @@ package body PkgTbSimUtilities is
     end if;
   end to_StdLogic;
 
+  function to_Boolean(s: std_logic) return boolean is
+  begin
+    return to_x01(s) = '1';
+  end function to_Boolean;
+
   function RandReal(UpperLim : real := 1.0) return real is
     variable seed1, seed2 : positive;
     variable randVal : real;
@@ -90,5 +99,16 @@ package body PkgTbSimUtilities is
   begin -- function RandSlv
     return std_logic_vector(to_unsigned(RandNatural(0, ((2**Size)-1)), Size));
   end function;
+
+  function RandUnsigned(Size : positive) return unsigned is
+  begin -- function RandUnsigned
+    return unsigned(RandSlv(Size));
+  end function;
+
+  function Zeros(Size : positive) return std_logic_vector is
+    variable RetVal : std_logic_vector(Size-1 downto 0) := (others => '0');
+  begin -- function Zeros
+    return RetVal;
+  end function Zeros;
 
 end package body PkgTbSimUtilities;

@@ -1,24 +1,9 @@
 -------------------------------------------------------------------------------
---
--- File: PkgAD7685TimeConstants.vhd
--- Author: Jose Luis Loyola
--- Original Project: ProjName
--- Date: 18 October 2012
---
--------------------------------------------------------------------------------
--- (c) 2012 Copyright National Instruments Corporation
--- All Rights Reserved
--- National Instruments Internal Information
--------------------------------------------------------------------------------
---
 -- Purpose:
 -- This file contains the time constants used in the AD7685 model.
 -------------------------------------------------------------------------------
 library ieee;
   use ieee.std_logic_1164.all;
-
-library vunit_lib;
-  context vunit_lib.vunit_context;
 
 package PkgAD7685TimeConstants is
   -----------------------------------------------------------------------------
@@ -57,7 +42,5 @@ package PkgAD7685TimeConstants is
   constant kBrdClkPeriodPositive_t         : positive := 25;   --ns
   constant kTimeBetweenConvPositive_t      : positive := 4000; --ns
   constant kAcquisitionTimePositive_t      : positive := 1800; --ns
-
-  shared variable Ad7685_Checker : checker_t;
 
 end PkgAD7685TimeConstants;

@@ -111,70 +111,6 @@ begin
       end if;
     end if;
   end process ModeSelectionCheck;
-
-
--------------------------------------------------------------------------------
--- Timing validations using VUnit Checker
--------------------------------------------------------------------------------
-  --synthesis translate_off
-  --This process checks Cycle time, Conversion time and acquisition time.
-  --It uses scoreboard to keep track when a timing violation occurs on this
-  --cycles.
-  CheckConversionTimes: process(aCurrentState)
-    variable StartTime : time := now;
-  begin
-    --Check that cycle time is kTimeBetweenConv (4 us)
-    if aCurrentState = ConversionSt then
-      check(Ad7685_Checker, (((now - StartTime) < kTimeBetweenConv) and
-        (now > kTimeBetweenConv)), rtl'path_name & "TcycViolation");
-      StartTime := now;
-    end if;
-
-    --Check Tacq is at least kAcquisitionTime (1.8 us)
-    check(Ad7685_Checker, ((aCurrentState'delayed = AcquisitionSt) and
-        (not(aCurrentState'delayed'stable(kAcquisitionTime)))),
-        rtl'path_name & "TacqViolation");
-
-    --Check if aCNV remains stable between kMinConvTime and kMaxConvTime
-    --And if it has a value of 1 at kMinConvTime
-    check(Ad7685_Checker, (aCurrentState'delayed = ConversionSt) and
-      (not (aCNV'delayed(kMaxConvTime - kMinConvTime) = '1') or
-       not (aCNV'delayed'stable(kMaxConvTime - kMinConvTime))),
-      rtl'path_name & "TconvMinViolation");
-
-  end process CheckConversionTimes;
-
-  --This process checks aSCK signal meets timing requirements (Period, low time,
-  --high time)
-  CheckSCK_Times: process(aSCK)
-    variable StartTime : time := now;
-  begin
-    --Check aSCK meets kSCK_LowTime (7 ns)
-    if rising_edge(aSCK) then
-      check(Ad7685_Checker, (not aSCK'delayed'stable(kSCK_LowTime)),
-        rtl'path_name & "TSckLViolation");
-    end if;
-
-    --Check aSCK period
-    if falling_edge(aSCK) then
-      check(Ad7685_Checker, ((now - StartTime) < kSCK_MinPeriod),
-        rtl'path_name & "TSckPeriodViolation");
-      StartTime := now;
-      --Check aSCK meets kSCK_HighTime (7 ns)
-      check(Ad7685_Checker, (not aSCK'delayed'stable(kSCK_HighTime)),
-        rtl'path_name & "TSckHViolation");
-    end if;
-  end process CheckSCK_Times;
-
-  --This process checks aCNV signal meets timing requirements (Tcnvh)
-  CheckCNVH: process(aCNV)
-  begin
-    if (falling_edge(aCNV) and aCurrentState = ConversionSt) then
-       check(Ad7685_Checker, (not aCNV'delayed'stable(kCNVPulseWidth)),
-         rtl'path_name & "TcnvhViolation");
-    end if;
-  end process CheckCNVH;
-
   --synthesis translate_on
 
 end rtl;
@@ -236,104 +172,63 @@ begin
 
   MainTestProc: process
     variable CheckResults : boolean := false;
-    variable RxData : unsigned(AnalogIn'range) := (others => '0');
+    procedure StimulateModel(InputData : unsigned(AnalogIn'range)) is
+      variable RxData : unsigned(AnalogIn'range) := (others => '0');
+    begin
+      --Send Data to the analog input
+      AnalogIn <= InputData;
+      --Set aSDI to select CS mode 3-wire, no busy indicator.
+      aSDI <= '1';
+      --Make sure we are not starting a conversion
+      aCNV <= '0';
+      --Check the output is in High-Z when no stimulus has been applied
+      wait for kTimeBetweenConv;
+      assert aSDO'stable(kTimeBetweenConv) and aSDO = 'Z'
+        report "aSDO changed without any input"
+        severity error;
+
+      --Set aCNV to start conversion (without violating timing)
+      aCNV <= '1', '0' after kMaxConvTime;
+      ClkWait(44, aSCK);
+      for i in AnalogIn'high downto 0 loop
+        ClkWait(1, aSCK);
+        RxData(i) := aSDO;
+      end loop;
+      --Check received data
+      assert RxData = AnalogIn
+        report "Data Mismatch" & LF &
+               "Expected " & Image(AnalogIn) & LF &
+               "Received " & Image(RxData)
+        severity error;
+      --Wait for a full ADC cycle (4 us)
+      wait for kTimeBetweenConv;
+    end procedure StimulateModel;
   begin
 
     test_runner_setup(runner, runner_cfg);
-    -- Set the checker error level to failure
-    checker_init(Ad7685_Checker, failure);
 
     -- Run each test in a separate simulation
     while test_suite loop
-      if run("NormalOperationTest") then
-        --Send Data to the analog input
-        AnalogIn <= x"ABCD";
-        --Set aSDI to select CS mode 3-wire, no busy indicator.
-        aSDI <= '1';
-        --Make sure we are not starting a conversion
-        aCNV <= '0';
-        --Check the output is in High-Z when no stimulus has been applied
-        wait for kTimeBetweenConv;
-        assert aSDO'stable(kTimeBetweenConv) and aSDO = 'Z'
-          report "aSDO changed without any input"
-          severity error;
-
-        --Set aCNV to start conversion (without violating timing)
-        aCNV <= '1', '0' after kMaxConvTime;
-        ClkWait(44, aSCK);
-        for i in AnalogIn'high downto 0 loop
-          ClkWait(1, aSCK);
-          RxData(i) := aSDO;
-        end loop;
-        --Check received data
-        assert RxData = AnalogIn
-          report "Data Mismatch" & LF &
-                 "Expected " & Image(AnalogIn) & LF &
-                 "Received " & Image(RxData)
-          severity error;
-        --Wait for a full ADC cycle (4 us)
-        wait for kAcquisitionTime;
-
-
-      elsif run("TconvTest") then
-        --Violate Tconv timing
-        aCNV <= '1', '0' after (kMinConvTime - 1 ns),
-                '1' after (kMinConvTime + 2 ns), '0' after kMaxConvTime;
-        wait for kTimeBetweenConv;
-		checker_found_errors(Ad7685_Checker, CheckResults);
-        assert CheckResults
-          report "TconvTest failed!"
-          severity error;
-
-
-      elsif run("TcnvhTest") then
-        --Violate Tcnvh timing
-        aCNV <= '1', '0' after (kCNVPulseWidth - 1 ns),
-                '1' after (kCNVPulseWidth * 2), '0' after kMaxConvTime;
-        wait for kTimeBetweenConv;
-        while not CheckResults loop
-		  checker_found_errors(Ad7685_Checker, CheckResults);
-          ClkWait(1, aSCK);
-        end loop;
-
-
-      elsif run("TacqTest") then
-        --Violate Tacq timing
-        --Give less than 1.8 us (kAcquisitionTime)
-        aCNV <= '1', '0' after (kTimeBetweenConv - kAcquisitionTime + 30 ns);
-        wait for kTimeBetweenConv;
-        aCNV <= '1', '0' after (kMaxConvTime);
-        wait for kTimeBetweenConv;
-        while not CheckResults loop
-		  checker_found_errors(Ad7685_Checker, CheckResults);
-          ClkWait(1, aSCK);
-        end loop;
-
-
-      elsif run("Tcyc") then
-        --Violate Tacq and Tcyc timing
-        --Start a normal acquisition
-        aCNV <= '1', '0' after (kMaxConvTime);
-        --Wait until AcquisitionSt is half way done
-        wait for kTimeBetweenConv - kAcquisitionTime / 2;
-        --Start a second acquisition before the first one is done
-        aCNV <= '1', '0' after (kMaxConvTime);
-        wait for kTimeBetweenConv;
-        while not CheckResults loop
-		  checker_found_errors(Ad7685_Checker, CheckResults);
-          ClkWait(1, aSCK);
-        end loop;
-
-
-      elsif run("TSckL_TSckPeriod_TSckH_Test") then
-        --Violate aSCK requirements/
-        aSCK_Period <= kSCK_MinPeriod - 1 ns;
-        wait for 10 * (kSCK_MinPeriod);
-        while not CheckResults loop
-		  checker_found_errors(Ad7685_Checker, CheckResults);
-          ClkWait(1, aSCK);
-        end loop;
-
+      if run("Test0") then
+        StimulateModel(x"7894");
+      elsif run("Test1") then
+        StimulateModel(x"ABCD");
+      elsif run("Test2") then
+        StimulateModel(x"0000");
+      elsif run("Test3") then
+        StimulateModel(x"FFFF");
+      elsif run("Test4") then
+        StimulateModel(x"AAAA");
+      elsif run("Test5") then
+        StimulateModel(x"75AB");
+      elsif run("Test6") then
+        StimulateModel(x"FECD");
+      elsif run("Test7") then
+        StimulateModel(x"D342");
+      elsif run("Test8") then
+        StimulateModel(x"148B");
+      elsif run("Test9") then
+        StimulateModel(x"BEEF");
       end if;
     end loop;
 

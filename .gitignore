@@ -4,3 +4,5 @@ vunit_out/*
 saved_hashes/*
 # Directory created by python
 __pycache__/*
+#VUnit Checker error file
+error.csv

@@ -53,9 +53,8 @@ hash_dict = {}
 args = VUnitCLI().parse_args(['--compile'])
 ui = VUnit.from_args(args)
 uilib = ui.add_library(lib_name)
-for rootDir, dirs, files in os.walk(root, prj_dir):
+for rootDir, dirs, files in os.walk(prj_dir):
     uilib.add_source_files(path.join(rootDir,'*.vhd'),allow_empty=True)
-# uilib.add_source_files(path.join(root, prj_dir, '*.vhd'))
 
 def get_file_dependencies(source_file):
     """

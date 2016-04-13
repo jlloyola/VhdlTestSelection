@@ -40,7 +40,7 @@ hash_manager = HashManager(lib_name, compiled_libraries, prj_dir, hash_dir, hash
 # Compile the VHDL project to ensure the files are up to date
 try:
     runVUnitPath = path.normpath(path.abspath('./RunVUnit.py'))
-    subprocess.check_call(runVUnitPath + ' --compile', shell=True)
+    subprocess.check_call('{} --compile --ProjectDirectory {} --ProjectLibrary {}'.format(runVUnitPath, prj_dir, lib_name), shell=True)
 except:
     print ('VUnit compilation failed')
     sys.exit(2)
@@ -132,6 +132,7 @@ def execute_stage(files_to_test):
         # TODO: Find a better way to send the specific test.
         pattern = ' *' + test_entity.rstrip('.vhd') + '*'
         vunit_command += pattern
+        vunit_command += ' --ProjectDirectory {} --ProjectLibrary {}'.format(prj_dir, lib_name)
         # Run the selected tests
         try:
             subprocess.check_call(vunit_command, shell=True)

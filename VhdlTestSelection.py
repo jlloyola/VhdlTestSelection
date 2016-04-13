@@ -7,7 +7,7 @@ import sys, logging
 import subprocess
 from vunit import VUnit
 from vunit.vunit_cli import VUnitCLI
-from HashManager import HashManager 
+from HashManager import HashManager
 
 # Uncomment this line to print the debug log
 # logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -36,16 +36,19 @@ hash_dict = {}
 args = VUnitCLI().parse_args(['--compile'])
 ui = VUnit.from_args(args)
 uilib = ui.add_library(lib_name)
-uilib.add_source_files(path.join(root, prj_dir, '*.vhd'))
+for rootDir, dirs, files in os.walk(root, prj_dir):
+    uilib.add_source_files(path.join(rootDir,'*.vhd'),allow_empty=True)
+# uilib.add_source_files(path.join(root, prj_dir, '*.vhd'))
 
 def get_file_dependencies(source_file):
     """
     Returns a list of file dependencies, based on the compile order
     """
+    print(source_file)
     ui_src_file = uilib.get_source_file(source_file)
     dependencies = ui.get_compile_order(ui_src_file)
     dependency_list = []
-    logging.debug('Get file dependencies: ' + source_file)
+    logging.debug('Get file dependencies from: ' + source_file)
     for dependency in dependencies:
         dependency_list.append(dependency.name)
         logging.debug(dependency.name)
@@ -68,17 +71,17 @@ def analysis_stage():
         for file in files:
             if fnmatch.fnmatch(file, '*.vhd'):
                 # Obtain the previous and current hashes from the file
-                file_path = path.join(prj_dir, file)
-                
+                file_path = path.join(root, file)
+
                 dependecy_list = get_file_dependencies(file_path)
                 dependecy_list = filter_file_dependencies(dependecy_list)
-                
+
                 logging.debug('Source file: {}'.format(file_path))
 
                 for dep in dependecy_list:
                     previous_hash = hash_manager.get_saved_hash(dep)
                     current_hash = hash_manager.get_file_hash(dep)
-                
+
                     logging.debug('Dependency file: {}'.format(dep))
                     logging.debug('Previous Hash: {}'.format(previous_hash))
                     logging.debug('Current Hash: {}'.format(current_hash))
@@ -86,7 +89,7 @@ def analysis_stage():
                     # store its current hash in the hash dictionary, and store its path
                     # into a dictionary too.
                     if previous_hash != current_hash:
-                        files_to_test.append(file_path) 
+                        files_to_test.append(file_path)
                         hash_dict[dep] = current_hash
     return set(files_to_test)
 
@@ -124,7 +127,7 @@ def execute_stage(files_to_test):
         save_computed_hashes()
     if len(files_to_test) == 0:
         print("Files have not changed. No tests were required to run.")
-        
+
 
 selected_tests = analysis_stage()
 logging.debug("Files that changed:" + str(hash_dict))

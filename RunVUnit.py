@@ -2,18 +2,28 @@
 
 import sys
 from os.path import join, dirname
+import os
 from vunit import VUnit
-from vunit.vunit_cli import VUnitCLI 
+from vunit.vunit_cli import VUnitCLI
 
 root = dirname(__file__)
 
-argv = sys.argv
-args = VUnitCLI().parse_args(argv)
+cli = VUnitCLI()
+cli.parser.add_argument('--ProjectDirectory')
+cli.parser.add_argument('--ProjectLibrary')
+args = cli.parse_args()
+
+# Create VUNit instance from custom arguments
+ui = VUnit.from_args(args=args)
+
+# Use args.custom_arg here ...
+print(args)
 
 ui = VUnit.from_args(args)
-lib = ui.add_library("lib")
-SourcePath = "Source"
-lib.add_source_files(join(root, SourcePath, "*.vhd"))
+lib = ui.add_library(args.ProjectLibrary)
+SourcePath = args.ProjectDirectory
+for rootDir, dirs, files in os.walk(root, SourcePath):
+    lib.add_source_files(join(rootDir,'*.vhd'),allow_empty=True)
 
 # Get all the .vhd source files
 # SrcFiles = ui.get_source_files('*.vhd')

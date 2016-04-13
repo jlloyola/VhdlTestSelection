@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os
+import argparse
 from os import path
 import fnmatch
 import sys, logging
@@ -9,23 +10,39 @@ from vunit import VUnit
 from vunit.vunit_cli import VUnitCLI
 from HashManager import HashManager 
 
+parser = argparse.ArgumentParser(description='VHDL Test selection.')
+
+parser.add_argument('source', help='Directory containing source files.')
+parser.add_argument('lib', help='Library name.')
+parser.add_argument('--hash', default='saved_hashes', help='Directory where computed hashes are saved.')
+parser.add_argument('--object_ext', default='o', help='Object file extension.')
+parser.add_argument('--hash_ext', default='xtc_hash', help='Saved hash file extension.')
+
+args = vars(parser.parse_args())
+print(args)
+        
+
 # Uncomment this line to print the debug log
-# logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 # root directory for this file
 root = path.dirname(__file__)
 
 # Location of the source files to be processed
-prj_dir = 'Source'
-lib_name = 'lib'
-hash_manager = HashManager(lib_name, './vunit_out/ghdl/libraries', './Source', './saved_hashes', 'xtc_hash', 'o')
+prj_dir = args['source']
+lib_name = args['lib']
+hash_dir = args['hash']
+hash_ext = args['hash_ext']
+object_ext = args['object_ext']
+compiled_libraries = './vunit_out/ghdl/libraries' # TODO: we should get this dynamically
+hash_manager = HashManager(lib_name, compiled_libraries, prj_dir, hash_dir, hash_ext, object_ext)
 
 # Compile the VHDL project to ensure the files are up to date
 try:
-    runVUnitPath = path.normpath(path.abspath("./RunVUnit.py"))
-    subprocess.check_call(runVUnitPath + " --compile", shell=True)
+    runVUnitPath = path.normpath(path.abspath('./RunVUnit.py'))
+    subprocess.check_call(runVUnitPath + ' --compile', shell=True)
 except:
-    print ("VUnit compilation failed")
+    print ('VUnit compilation failed')
     sys.exit(2)
 
 
@@ -97,23 +114,24 @@ def save_computed_hashes():
             logging.debug('Trying to save hash for: ' + source_file)
             hash_manager.save_hash(source_file, computed_hash)
         except Error as e:
-            print ("save_hash failed")
+            print ('save_hash failed')
             logging.debug(e)
 
 def execute_stage(files_to_test):
     all_tests_passed = True
-    logging.debug("Tests to run:" + str(files_to_test))
+    logging.debug('Tests to run:' + str(files_to_test))
     for file_source in files_to_test:
         # I want to be able to run it on unix too.
         # let me know if this still works on windows.
-        vunit_command = path.normpath(path.abspath("./RunVUnit.py"))
+        vunit_command = path.normpath(path.abspath('./RunVUnit.py'))
         # Remove the .vhd extension, make all file names lower case (required by
         # VUnit) and, concatenate it to the vunit_command
         test_entity = str(file_source)
         test_entity = test_entity.lower()
         test_entity = path.basename(test_entity)
         # TODO: Find a better way to send the specific test.
-        vunit_command += (" *" + test_entity.rstrip(".vhd") + "*")
+        pattern = ' *' + test_entity.rstrip('.vhd') + '*'
+        vunit_command += pattern
         # Run the selected tests
         try:
             subprocess.check_call(vunit_command, shell=True)
@@ -123,9 +141,9 @@ def execute_stage(files_to_test):
     if all_tests_passed:
         save_computed_hashes()
     if len(files_to_test) == 0:
-        print("Files have not changed. No tests were required to run.")
+        print('Files have not changed. No tests were required to run.')
         
 
 selected_tests = analysis_stage()
-logging.debug("Files that changed:" + str(hash_dict))
+logging.debug('Files that changed:' + str(hash_dict))
 execute_stage(selected_tests)

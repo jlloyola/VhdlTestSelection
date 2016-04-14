@@ -19,11 +19,10 @@ parser.add_argument('--object_ext', default='o', help='Object file extension.')
 parser.add_argument('--hash_ext', default='xtc_hash', help='Saved hash file extension.')
 
 args = vars(parser.parse_args())
-print(args)
 
 
 # Uncomment this line to print the debug log
-logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+# logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 # root directory for this file
 root = path.dirname(__file__)
@@ -60,7 +59,6 @@ def get_file_dependencies(source_file):
     """
     Returns a list of file dependencies, based on the compile order
     """
-    print(source_file)
     ui_src_file = uilib.get_source_file(source_file)
     dependencies = ui.get_compile_order(ui_src_file)
     dependency_list = []

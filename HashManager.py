@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
-import hashlib
 import os
+import logging
+import hashlib
 import fnmatch
 from os import path
 
@@ -72,9 +73,9 @@ class HashManager :
         hierarchy, but in saved_hash_directory. Creates all needed directories.
         """
         hash_file = self._get_hash_file_path(source_file)
-        print(hash_file)
-        print(source_file)
-        print(path.dirname(hash_file))
+        logging.debug(hash_file)
+        logging.debug(source_file)
+        logging.debug(path.dirname(hash_file))
         try:
             # Create directory structure if needed.
             os.makedirs(os.path.dirname(hash_file), exist_ok=True)

@@ -2,10 +2,11 @@
 
 import os
 import argparse
-from os import path
+import time
 import fnmatch
 import sys, logging
 import subprocess
+from os import path
 from vunit import VUnit
 from vunit.vunit_cli import VUnitCLI
 from HashManager import HashManager
@@ -19,11 +20,9 @@ parser.add_argument('--object_ext', default='o', help='Object file extension.')
 parser.add_argument('--hash_ext', default='xtc_hash', help='Saved hash file extension.')
 
 args = vars(parser.parse_args())
-print(args)
-
 
 # Uncomment this line to print the debug log
-logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+# logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 # root directory for this file
 root = path.dirname(__file__)
@@ -42,12 +41,15 @@ try:
     runVUnitPath = path.normpath(path.abspath('./RunVUnit.py'))
     subprocess.check_call('{} --compile --ProjectDirectory {} --ProjectLibrary {}'.format(runVUnitPath, prj_dir, lib_name), shell=True)
 except:
-    print ('VUnit compilation failed')
+    logging.error('VUnit compilation failed')
     sys.exit(2)
 
 
 # Contains the latest hashes of the files whose will be executed.
 hash_dict = {}
+start_time = time.time()
+analysis_time = 0
+execution_time = 0
 
 # All because we want to know the compile order of a source file.
 args = VUnitCLI().parse_args(['--compile'])
@@ -60,7 +62,7 @@ def get_file_dependencies(source_file):
     """
     Returns a list of file dependencies, based on the compile order
     """
-    print(source_file)
+    logging.debug(source_file)
     ui_src_file = uilib.get_source_file(source_file)
     dependencies = ui.get_compile_order(ui_src_file)
     dependency_list = []
@@ -116,7 +118,7 @@ def save_computed_hashes():
             logging.debug('Trying to save hash for: ' + source_file)
             hash_manager.save_hash(source_file, computed_hash)
         except Error as e:
-            print ('save_hash failed')
+            logging.error('save_hash failed')
             logging.debug(e)
 
 def execute_stage(files_to_test):
@@ -142,10 +144,19 @@ def execute_stage(files_to_test):
             all_tests_passed = False
             print ("VUnit tests failed")
     if all_tests_passed:
+        # Collection stage
         save_computed_hashes()
     if len(files_to_test) == 0:
         print('Files have not changed. No tests were required to run.')
 
+
 selected_tests = analysis_stage()
+analysis_time = time.time()
 logging.debug('Files that changed:' + str(hash_dict))
 execute_stage(selected_tests)
+execution_time = time.time()
+
+print("Analysis time: {:f} seconds".format(analysis_time - start_time))
+print("Execution time: {:f} seconds".format(execution_time - analysis_time))
+
+print("Total time: {:f} seconds".format(execution_time - start_time))

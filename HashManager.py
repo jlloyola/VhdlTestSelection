@@ -8,10 +8,10 @@ from os import path
 
 class HashManager :
     """
-    Class that manages computing a hash from object files generated from source files. 
+    Class that manages computing a hash from object files generated from source files.
     As well as saving those computed hashes into an specified directory.
     """
-    
+
     # Constructor
     def __init__(self, lib_name, obj_dir, src_dir, saved_hash_dir, hash_ext, obj_ext):
         self.lib_name = lib_name
@@ -24,7 +24,7 @@ class HashManager :
     # Private Methods
     def _get_hash_file_path(self, source_file):
         """
-        Returns the file path that contains the hash associated with source_file. 
+        Returns the file path that contains the hash associated with source_file.
         """
         head, tail = path.split(source_file)
         hash_file_name = '{}.{}'.format(path.splitext(tail)[0], self.hash_ext)
@@ -37,7 +37,7 @@ class HashManager :
         """
         head, tail = path.split(source_file)
         object_file_name = '{}.{}'.format(path.splitext(tail)[0], self.obj_ext)
-        object_file_path = path.join(self.obj_dir, self.lib_name, object_file_name) 
+        object_file_path = path.join(self.obj_dir, self.lib_name, object_file_name)
         return object_file_path
 
     # Public Methods
@@ -69,7 +69,7 @@ class HashManager :
 
     def save_hash(self, source_file, hash):
         """
-        Saves a computed hash into a file that mimics source_file relative path 
+        Saves a computed hash into a file that mimics source_file relative path
         hierarchy, but in saved_hash_directory. Creates all needed directories.
         """
         hash_file = self._get_hash_file_path(source_file)

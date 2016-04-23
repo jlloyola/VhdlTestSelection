@@ -20,10 +20,6 @@ parser.add_argument('--object_ext', default='o', help='Object file extension.')
 parser.add_argument('--hash_ext', default='xtc_hash', help='Saved hash file extension.')
 
 args = vars(parser.parse_args())
-<<<<<<< HEAD
-=======
-
->>>>>>> b978c6be46c9ab37797f326ba0c451145a837fa1
 
 # Uncomment this line to print the debug log
 # logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)

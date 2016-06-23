@@ -17,7 +17,7 @@ parser.add_argument('source', help='Directory containing source files.')
 parser.add_argument('lib', help='Library name.')
 parser.add_argument('--hash', default='saved_hashes', help='Directory where computed hashes are saved.')
 parser.add_argument('--object_ext', default='o', help='Object file extension.')
-parser.add_argument('--hash_ext', default='xtc_hash', help='Saved hash file extension.')
+parser.add_argument('--hash_ext', default='ehf', help='Saved hash file extension.') # Eksen hash file
 
 args = vars(parser.parse_args())
 
